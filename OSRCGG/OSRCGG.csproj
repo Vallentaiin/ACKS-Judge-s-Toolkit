@@ -1,0 +1,393 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{0C3E4AD9-5AFF-4409-BFC9-1BA2C63AD73B}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>OSRCGG</RootNamespace>
+    <AssemblyName>ACKSJudgesToolkit</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Core\IStorable.cs" />
+    <Compile Include="Infrastructure\Excel\ExcelWorksheetShim.cs" />
+    <Compile Include="Infrastructure\Excel\MapWorkbookService.cs" />
+    <Compile Include="Infrastructure\Excel\TradeDemandWorkbookService.cs" />
+    <Compile Include="Infrastructure\Storage\IRecordStore.cs" />
+    <Compile Include="Infrastructure\Storage\XmlRecordStore.cs" />
+    <Compile Include="Infrastructure\Storage\XmlSerialization.cs" />
+    <Compile Include="Models\Characters\CharacterGenerationModels.cs" />
+    <Compile Include="Models\Characters\CharacterGenerationResult.cs" />
+    <Compile Include="Models\Characters\CharacterRecord.cs" />
+    <Compile Include="Models\Domains\DomainModels.cs" />
+    <Compile Include="Models\Dungeons\DungeonModels.cs" />
+    <Compile Include="Models\Maps\MapModels.cs" />
+    <Compile Include="Models\Treasures\TreasureModels.cs" />
+    <Compile Include="Rules\AcksDomainRules.cs" />
+    <Compile Include="Rules\AcksRules.cs" />
+    <Compile Include="Rules\RealmTitleCatalog.cs" />
+    <Compile Include="Services\Characters\CharacterGenerationCatalog.cs" />
+    <Compile Include="Services\Characters\CharacterGenerator.cs" />
+    <Compile Include="Services\Characters\CharacterRulesService.cs" />
+    <Compile Include="Services\Characters\CharacterGenerator.Appearance.cs" />
+    <Compile Include="AcksToolkitForm.CharacterGeneration.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Services\Characters\CharacterGenerator.Equipment.cs" />
+    <Compile Include="Services\Characters\CharacterGenerator.Occupations.cs" />
+    <Compile Include="Services\Characters\CharacterGenerator.Rules.cs" />
+    <Compile Include="Services\Dungeons\DungeonCatalog.cs" />
+    <Compile Include="Services\Dungeons\DungeonGeometry.cs" />
+    <Compile Include="Services\Dungeons\DungeonGenerator.cs" />
+    <Compile Include="Services\Treasures\MagicItemCatalog.cs" />
+    <Compile Include="Services\Treasures\TreasureCatalog.cs" />
+    <Compile Include="Services\Treasures\TreasureDice.cs" />
+    <Compile Include="Services\Treasures\TreasureGenerator.cs" />
+    <Compile Include="Services\Maps\MapDataNormalizer.cs" />
+    <Compile Include="Services\Trade\MapDemandService.cs" />
+    <Compile Include="UI\Dialogs\DomainEditorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Dialogs\CivilizationRegenerationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Dialogs\RealmEditorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Dialogs\RealmHierarchyDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Dialogs\MapHexFeaturePlacementDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AcksToolkitForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Characters.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.UiStyle.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Domains.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Dungeons.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Treasures.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Map.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Map.ImportExport.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Map.Names.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Map.Rendering.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.Layout.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AcksToolkitForm.NameGenerator.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Dialogs\HelpForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Dialogs\MapSettlementGenerationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Services\Names\NameGenerationService.cs" />
+    <Compile Include="Generator\RegionGenerationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Generator\RegionGenerationModels.cs" />
+    <Compile Include="Generator\RegionMapGenerator.cs" />
+    <Compile Include="Generator\RegionMapGenerator.Domains.cs" />
+    <Compile Include="Generator\RegionMapGenerator.Environment.cs" />
+    <Compile Include="Generator\RegionMapGenerator.Features.cs" />
+    <Compile Include="Generator\RegionMapGenerator.Realms.cs" />
+    <Compile Include="Generator\RegionMapGenerator.Roads.cs" />
+    <Compile Include="Generator\RegionMapGenerator.Settlements.cs" />
+    <Compile Include="Generator\RegionMapGenerator.Utility.cs" />
+    <Compile Include="AcksToolkitForm.Designer.cs">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\DoubleBufferedPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\TransparentPictureBox.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\ThemedTrackBar.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\UiTheme.cs" />
+    <Compile Include="Utilities\FileNameHelper.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="AcksToolkitForm.resx">
+      <DependentUpon>AcksToolkitForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.102.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <COMReference Include="WMPLib">
+      <Guid>{6BF52A50-394A-11D3-B153-00C04F79FAA6}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="icon.ico" />
+    <Content Include="MapAssets\class1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\class2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\class3.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\class4.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\class5.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\class6.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\beastmanclanold.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\dwarfclass1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\dwarfclass2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\dwarfclass3.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\dwarfclass4.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\dwarfclass5.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\dwarfclass6.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\elvenclass1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\elvenclass2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\elvenclass3.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\elvenclass4.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\elvenclass5.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\elvenclass6.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\fortress.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\fortressbarbarians.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\fortressbeastman.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\fortressdwarf.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\fortresself.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\fortressorcs.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\humanclanold.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\orcclanold.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\bigwater.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\buttonborder.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\Fonts\Alegreya.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\Fonts\Alegreya-Italic.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\deeotaiga.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\deepforest.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\deleteicon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\desert.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\forest.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\fon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\goods.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\grasslands.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\hills.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\lake.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\marsh.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\mountains.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\notselected.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\rainforest.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\river.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\rivertool.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\road.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\savanna.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\scrub.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\selecticon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\sign.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\steppe.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\taiga.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\tundra.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\dungeon_*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\feature_*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MapAssets\featuretool.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

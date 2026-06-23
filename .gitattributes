@@ -1,0 +1,29 @@
+* text=auto
+
+# Keep Windows/Visual Studio project files predictable.
+*.cs text eol=crlf
+*.csproj text eol=crlf
+*.sln text eol=crlf
+*.resx text eol=crlf
+*.config text eol=crlf
+*.settings text eol=crlf
+*.xml text eol=crlf
+
+# Tooling/docs are easier to diff with LF.
+*.py text eol=lf
+*.md text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Binary assets.
+*.bmp binary
+*.docx binary
+*.gif binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.mp3 binary
+*.pdf binary
+*.png binary
+*.ttf binary
+*.xlsx binary
