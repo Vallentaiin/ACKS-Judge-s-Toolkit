@@ -13,7 +13,7 @@ namespace OSRCGG
         // Глобальные переменные для данных
         double[] A; // Массив модификаторов (29 элементов согласно Image 2)
         double[] PartnerDemands; // Массив модификаторов партнера
-        bool isEnglish = false; // Флаг языка
+        bool isEnglish = true; // Флаг языка
 
         // Названия товаров (согласно Image 2 и старой версии, объединены) - всего 29 штук
         string[] MerchandiseNames = {
@@ -27,7 +27,7 @@ namespace OSRCGG
 
         // Объект для музыки
         public WMPLib.WindowsMediaPlayer WMP = new WMPLib.WindowsMediaPlayer();
-        private const string ProgramVersion = "v2.4.0";
+        private const string ProgramVersion = "v2.4.1";
         private const string SettlementKindHuman = "Human";
         private const string SettlementKindDwarf = "Dwarf";
         private const string SettlementKindElf = "Elf";
@@ -348,7 +348,7 @@ namespace OSRCGG
             ConfigureTradeCalculationLogGrid();
 
             // Переключатель языка
-            btnLang.Text = isEnglish ? "EN" : "RU";
+            btnLang.Text = "EN / RU";
 
             // Обновление текстов в панелях (Labels)
             label3Title.Text = isEnglish ? "Age" : "Возраст";

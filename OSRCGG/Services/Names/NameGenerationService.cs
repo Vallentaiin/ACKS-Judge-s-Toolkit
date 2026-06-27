@@ -47,6 +47,36 @@ namespace OSRCGG
             "hall", "haven", "hill", "keep", "mill", "reach", "spring", "watch"
         };
 
+        private static readonly string[] OccupationalBynames =
+        {
+            "Alchemist", "Armorer", "Baker", "Bowyer", "Brewer", "Carpenter", "Fletcher", "Herbalist",
+            "Jeweler", "Mason", "Miller", "Navigator", "Scribe", "Smith", "Tanner", "Warden", "Weaver"
+        };
+
+        private static readonly string[] RussianEnglishMaleNames =
+        {
+            "Олдрик", "Седрик", "Эдвин", "Годвин", "Леофрик", "Освин",
+            "Роуэн", "Вистан", "Эдгар", "Элрик", "Гарет", "Брендан",
+            "Морис", "Рэндольф", "Гилберт", "Осберт"
+        };
+
+        private static readonly string[] RussianEnglishFemaleNames =
+        {
+            "Эвелин", "Эдит", "Элена", "Изольда", "Мейбл", "Роуэна",
+            "Винифред", "Изабель", "Элианора", "Матильда", "Аделина", "Гвендолин",
+            "Алиса", "Сесилия", "Беатрис", "Мариан"
+        };
+
+        private static readonly string[,] RussianOccupationalBynames =
+        {
+            { "Alchemist", "Алхимик" }, { "Armorer", "Оружейник" }, { "Baker", "Пекарь" },
+            { "Bowyer", "Лучник" }, { "Brewer", "Пивовар" }, { "Carpenter", "Плотник" },
+            { "Fletcher", "Стрельник" }, { "Herbalist", "Травник" }, { "Jeweler", "Ювелир" },
+            { "Mason", "Каменщик" }, { "Miller", "Мельник" }, { "Navigator", "Кормчий" },
+            { "Scribe", "Писец" }, { "Smith", "Кузнец" }, { "Tanner", "Кожевник" },
+            { "Warden", "Страж" }, { "Weaver", "Ткач" }
+        };
+
         public static NameGenerationService CreateDefault(string startDirectory)
         {
             NameGenerationService service = new NameGenerationService();
@@ -72,13 +102,18 @@ namespace OSRCGG
         public string GeneratePersonalName(Random random, string cultureKey, bool female)
         {
             NamePack pack = ResolvePack(cultureKey);
-            string given = Pick(random, female ? pack.FemaleNames : pack.MaleNames);
-            string surname = Pick(random, pack.Surnames);
+            string given = GenerateGivenName(random, pack, female);
+            string surname = GeneratePersonalByname(random, pack, female);
             return string.IsNullOrWhiteSpace(surname) ? given : given + " " + surname;
         }
 
         public string GeneratePersonalName(Random random, string cultureKey, bool female, bool russianOutput)
         {
+            if (russianOutput && UsesRussianEnglishPersonalNames(cultureKey))
+            {
+                return GenerateRussianEnglishPersonalName(random, ResolvePack(cultureKey), female);
+            }
+
             string name = GeneratePersonalName(random, cultureKey, female);
             return russianOutput ? TransliterateName(name, cultureKey) : name;
         }
@@ -234,7 +269,7 @@ namespace OSRCGG
         public string GenerateDynastyName(Random random, string cultureKey)
         {
             NamePack pack = ResolvePack(cultureKey);
-            return Pick(random, pack.Surnames);
+            return GenerateFamilyName(random, pack, false, false);
         }
 
         public string GenerateDynastyName(Random random, string cultureKey, bool russianOutput)
@@ -791,6 +826,398 @@ namespace OSRCGG
             return values[random.Next(values.Length)];
         }
 
+        private bool UsesRussianEnglishPersonalNames(string cultureKey)
+        {
+            NamePack pack = ResolvePack(cultureKey);
+            return pack != null && string.Equals(pack.Key, "english", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string GenerateRussianEnglishPersonalName(Random random, NamePack pack, bool female)
+        {
+            string given = Pick(random, female ? RussianEnglishFemaleNames : RussianEnglishMaleNames);
+            string surname = GenerateRussianEnglishByname(random, pack, female);
+            return string.IsNullOrWhiteSpace(surname) ? given : given + " " + surname;
+        }
+
+        private string GenerateRussianEnglishByname(Random random, NamePack pack, bool female)
+        {
+            int style = random.Next(100);
+            if (style < 12)
+            {
+                return "из " + GenerateRussianEnglishPlaceName(random, pack);
+            }
+
+            if (style < 18)
+            {
+                return PickRussianOccupation(random);
+            }
+
+            return TransliterateName(GenerateFamilyName(random, pack, female, false), pack.Key);
+        }
+
+        private string GenerateRussianEnglishPlaceName(Random random, NamePack pack)
+        {
+            string root = Pick(random, pack.SettlementRoots);
+            string[] suffixes = pack.SettlementSuffixes.Where(v => !string.IsNullOrWhiteSpace(v)).ToArray();
+            string suffix = Pick(random, suffixes);
+            string place = root + suffix;
+            if (random.Next(100) < 18)
+            {
+                place = Pick(random, SettlementQualifiers) + " " + place;
+            }
+
+            return TransliterateName(place, pack.Key);
+        }
+
+        private string PickRussianOccupation(Random random)
+        {
+            int index = random.Next(RussianOccupationalBynames.GetLength(0));
+            return RussianOccupationalBynames[index, 1];
+        }
+
+        private string GenerateGivenName(Random random, NamePack pack, bool female)
+        {
+            string[] values = female ? pack.FemaleNames : pack.MaleNames;
+            if (values == null || values.Length == 0) return "";
+
+            // Встроенные списки короткие, поэтому часть имен собирается из звучащих
+            // фрагментов той же культуры. Это дает вариативность без внешних данных.
+            if (values.Length < 18 || random.Next(100) < 55)
+            {
+                string blended = GenerateBlendedName(random, values);
+                if (!string.IsNullOrWhiteSpace(blended)) return blended;
+            }
+
+            return Pick(random, values);
+        }
+
+        private string GenerateBlendedName(Random random, string[] values)
+        {
+            if (values == null || values.Length < 2) return "";
+
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                string first = CleanNameToken(Pick(random, values));
+                string second = CleanNameToken(Pick(random, values));
+                if (first.Length < 3 || second.Length < 3) continue;
+                if (string.Equals(first, second, StringComparison.OrdinalIgnoreCase)) continue;
+
+                string candidate = UpperFirst(NameStart(first) + LowerFirst(NameEnding(second)));
+                candidate = SmoothGeneratedName(candidate);
+                if (candidate.Length < 3 || candidate.Length > 18) continue;
+                if (values.Any(v => string.Equals(v, candidate, StringComparison.OrdinalIgnoreCase))) continue;
+                return candidate;
+            }
+
+            return "";
+        }
+
+        private string GeneratePersonalByname(Random random, NamePack pack, bool female)
+        {
+            if (AllowsMedievalByname(pack))
+            {
+                int style = random.Next(100);
+                if (style < 16) return GenerateHabitationalByname(random, pack);
+                if (style < 26) return "the " + Pick(random, OccupationalBynames);
+            }
+
+            return GenerateFamilyName(random, pack, female, true);
+        }
+
+        private string GenerateFamilyName(Random random, NamePack pack, bool female, bool allowPersonalByname)
+        {
+            if (pack == null) return "";
+            string key = pack.Key ?? "";
+            int style = random.Next(100);
+
+            if (string.Equals(key, "russian", StringComparison.OrdinalIgnoreCase))
+            {
+                return GenerateSlavicFamilyName(random, pack, female);
+            }
+
+            if (string.Equals(key, "old_norse", StringComparison.OrdinalIgnoreCase))
+            {
+                if (allowPersonalByname && style < 55)
+                {
+                    return GeneratePatronymic(random, pack, female, "son", "dottir");
+                }
+
+                return GenerateCompoundFamilyName(random, pack, FamilyEndingsForPack(pack));
+            }
+
+            if (string.Equals(key, "arabic", StringComparison.OrdinalIgnoreCase))
+            {
+                if (allowPersonalByname && style < 45)
+                {
+                    return (female ? "bint " : "ibn ") + GenerateGivenName(random, pack, false);
+                }
+
+                return "al-" + GenerateCompoundFamilyName(random, pack, FamilyEndingsForPack(pack));
+            }
+
+            if (string.Equals(key, "persian", StringComparison.OrdinalIgnoreCase))
+            {
+                return GenerateCompoundFamilyName(random, pack, FamilyEndingsForPack(pack));
+            }
+
+            if (IsEastAsianPack(key))
+            {
+                if (allowPersonalByname && style < 18) return Pick(random, pack.Surnames);
+                return GenerateCompoundFamilyName(random, pack, FamilyEndingsForPack(pack));
+            }
+
+            if (style < 72)
+            {
+                return GenerateCompoundFamilyName(random, pack, FamilyEndingsForPack(pack));
+            }
+
+            return Pick(random, pack.Surnames);
+        }
+
+        private string GenerateSlavicFamilyName(Random random, NamePack pack, bool female)
+        {
+            string root = StripFinalVowel(CleanNameToken(Pick(random, pack.MaleNames.Concat(pack.SettlementRoots).ToArray())));
+            if (string.IsNullOrWhiteSpace(root)) root = "Nov";
+
+            string suffix = Pick(random, new[] { "ov", "ev", "in", "sky", "ich" });
+            if (female)
+            {
+                if (suffix == "ov") suffix = "ova";
+                else if (suffix == "ev") suffix = "eva";
+                else if (suffix == "in") suffix = "ina";
+                else if (suffix == "sky") suffix = "skaya";
+            }
+
+            return UpperFirst(root + suffix);
+        }
+
+        private string GeneratePatronymic(Random random, NamePack pack, bool female, string maleSuffix, string femaleSuffix)
+        {
+            string parent = CleanNameToken(GenerateGivenName(random, pack, false));
+            if (string.IsNullOrWhiteSpace(parent)) return Pick(random, pack.Surnames);
+            string suffix = female ? femaleSuffix : maleSuffix;
+            return UpperFirst(StripFinalVowel(parent) + suffix);
+        }
+
+        private string GenerateHabitationalByname(Random random, NamePack pack)
+        {
+            string place = GenerateSettlementName(random, pack.Key);
+            if (string.IsNullOrWhiteSpace(place)) return "";
+
+            if (string.Equals(pack.Key, "german", StringComparison.OrdinalIgnoreCase))
+            {
+                return "von " + place;
+            }
+
+            if (string.Equals(pack.Key, "romance_pack", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(pack.Key, "ancient_roman_pack", StringComparison.OrdinalIgnoreCase))
+            {
+                return "de " + place;
+            }
+
+            return "of " + place;
+        }
+
+        private string GenerateCompoundFamilyName(Random random, NamePack pack, string[] endings)
+        {
+            string first = Pick(random, FamilyRootsForPack(pack));
+            string second = Pick(random, endings);
+            if (string.IsNullOrWhiteSpace(first)) first = Pick(random, pack.Surnames);
+            if (string.IsNullOrWhiteSpace(second)) return NormalizeGeneratedWordCase(UpperFirst(first));
+
+            if (second.StartsWith(" ", StringComparison.Ordinal) || second.StartsWith("-", StringComparison.Ordinal))
+            {
+                return NormalizeGeneratedWordCase(UpperFirst(first) + second);
+            }
+
+            return NormalizeGeneratedWordCase(UpperFirst(first) + LowerFirst(second));
+        }
+
+        private string[] FamilyRootsForPack(NamePack pack)
+        {
+            if (pack != null && string.Equals(pack.Key, "english", StringComparison.OrdinalIgnoreCase))
+            {
+                return pack.SettlementRoots
+                    .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length <= 12)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+            }
+
+            return pack.SettlementRoots
+                .Concat(pack.Surnames.Select(CleanFamilyRoot))
+                .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length <= 12)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private string[] FamilyEndingsForPack(NamePack pack)
+        {
+            string key = pack == null ? "" : pack.Key ?? "";
+            string[] extra;
+            if (string.Equals(key, "english", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "generic", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "borne", "brook", "field", "ford", "ley", "mere", "well", "wick", "wood", "worth" };
+            }
+            else if (string.Equals(key, "german", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "bach", "berg", "er", "feld", "heim", "mann", "stein", "wald" };
+            }
+            else if (string.Equals(key, "old_norse", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "bjorn", "gard", "heim", "sen", "skald", "ulf", "vik" };
+            }
+            else if (string.Equals(key, "arabic", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "adi", "ani", "ari", "een", "i", "id", "un" };
+            }
+            else if (string.Equals(key, "persian", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "an", "dar", "i", "pur", "shahr", "zadeh" };
+            }
+            else if (string.Equals(key, "japanese", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "da", "gawa", "hara", "moto", "mura", "oka", "shima", "yama" };
+            }
+            else if (string.Equals(key, "chinese_pack", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "", "an", "hua", "lin", "long", "shan", "wei", "yun" };
+            }
+            else if (string.Equals(key, "korean_pack", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "", "ho", "jin", "min", "seong", "won", "yun" };
+            }
+            else if (string.Equals(key, "indian_pack", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "nanskrit", StringComparison.OrdinalIgnoreCase))
+            {
+                extra = new[] { "an", "dev", "gar", "nath", "pur", "raj", "varma" };
+            }
+            else
+            {
+                extra = new[] { "an", "ar", "en", "eth", "ian", "or", "un" };
+            }
+
+            return pack.SettlementSuffixes
+                .Concat(extra)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private bool AllowsMedievalByname(NamePack pack)
+        {
+            if (pack == null) return false;
+            string key = pack.Key ?? "";
+            return string.Equals(key, "english", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "german", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "old_norse", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "celtic_pack", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "romance_pack", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "ancient_roman_pack", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "generic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "human_clan", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "dwarf", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "elf", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "orc", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "beastman", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsEastAsianPack(string key)
+        {
+            return string.Equals(key, "japanese", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "chinese_pack", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "korean_pack", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string CleanNameToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            return new string(value.Where(char.IsLetter).ToArray());
+        }
+
+        private string CleanFamilyRoot(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            return new string(value
+                .Where(c => char.IsLetter(c) || char.IsWhiteSpace(c) || c == '\'' || c == '’' || c == '-')
+                .ToArray())
+                .Trim();
+        }
+
+        private string NameStart(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            int cut = Math.Min(value.Length, Math.Max(2, Math.Min(5, value.Length / 2 + 1)));
+            for (int i = 1; i < value.Length - 1; i++)
+            {
+                if (IsLatinVowel(value[i]))
+                {
+                    cut = Math.Min(value.Length, i + 1);
+                    if (cut < 2 && value.Length > 2) cut = 2;
+                    break;
+                }
+            }
+
+            return value.Substring(0, cut);
+        }
+
+        private string NameEnding(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            int start = Math.Max(1, value.Length - Math.Min(5, Math.Max(2, value.Length / 2)));
+            for (int i = value.Length - 2; i > 0; i--)
+            {
+                if (IsLatinVowel(value[i]))
+                {
+                    start = Math.Max(1, i);
+                    break;
+                }
+            }
+
+            return value.Substring(start);
+        }
+
+        private string SmoothGeneratedName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return value;
+            string result = Regex.Replace(value, "([bcdfghjklmnpqrstvwxyz])\\1{2,}", "$1$1", RegexOptions.IgnoreCase);
+            result = Regex.Replace(result, "([aeiouy])\\1{2,}", "$1", RegexOptions.IgnoreCase);
+            return NormalizeGeneratedWordCase(result);
+        }
+
+        private string NormalizeGeneratedWordCase(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return value;
+
+            char[] chars = value.ToCharArray();
+            bool wordStart = true;
+            for (int i = 0; i < chars.Length; i++)
+            {
+                char c = chars[i];
+                if (char.IsLetter(c))
+                {
+                    chars[i] = wordStart ? char.ToUpperInvariant(c) : char.ToLowerInvariant(c);
+                    wordStart = false;
+                }
+                else
+                {
+                    wordStart = char.IsWhiteSpace(c) || c == '\'' || c == '’' || c == '-';
+                }
+            }
+
+            return new string(chars);
+        }
+
+        private string StripFinalVowel(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.Length <= 2) return value;
+            return IsLatinVowel(value[value.Length - 1]) ? value.Substring(0, value.Length - 1) : value;
+        }
+
+        private bool IsLatinVowel(char value)
+        {
+            char c = char.ToLowerInvariant(value);
+            return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' || c == 'y';
+        }
+
         private string TransliterateName(string value)
         {
             return TransliterateName(value, null);
@@ -826,7 +1253,7 @@ namespace OSRCGG
         {
             // Эти правила дают русской локализации не буквенную транслитерацию, а звучание,
             // близкое к привычной фэнтезийной адаптации: Ravenbury -> Рейвенбьюри.
-            string result = value;
+            string result = LocalizeEnglishBynamePhrases(value);
             string[,] rules =
             {
                 { "Hawthorne", "Хоторн" }, { "Blackwood", "Блэквуд" }, { "Fairborne", "Фейрберн" },
@@ -913,6 +1340,26 @@ namespace OSRCGG
             for (int i = 0; i < rules.GetLength(0); i++)
             {
                 result = ReplaceNamePart(result, rules[i, 0], rules[i, 1]);
+            }
+
+            return result;
+        }
+
+        private string LocalizeEnglishBynamePhrases(string value)
+        {
+            string result = Regex.Replace(
+                value,
+                @"\bof\s+",
+                "из ",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+            for (int i = 0; i < RussianOccupationalBynames.GetLength(0); i++)
+            {
+                result = Regex.Replace(
+                    result,
+                    @"\bthe\s+" + Regex.Escape(RussianOccupationalBynames[i, 0]) + @"\b",
+                    RussianOccupationalBynames[i, 1],
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             }
 
             return result;

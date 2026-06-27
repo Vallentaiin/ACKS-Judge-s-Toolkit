@@ -924,7 +924,7 @@
             this.lblProgramVersion.Name = "lblProgramVersion";
             this.lblProgramVersion.Size = new System.Drawing.Size(53, 24);
             this.lblProgramVersion.TabIndex = 50;
-            this.lblProgramVersion.Text = "v2.4.0";
+            this.lblProgramVersion.Text = "v2.4.1";
             this.lblProgramVersion.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.lblProgramVersion.Click += new System.EventHandler(this.lblProgramVersion_Click);
             // 
@@ -2614,12 +2614,12 @@
             this.lblMapInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(58)))), ((int)(((byte)(58)))), ((int)(((byte)(58)))));
             this.lblMapInfo.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblMapInfo.ForeColor = System.Drawing.Color.White;
-            this.lblMapInfo.Location = new System.Drawing.Point(10, 466);
+            this.lblMapInfo.Location = new System.Drawing.Point(270, 786);
             this.lblMapInfo.Multiline = true;
             this.lblMapInfo.Name = "lblMapInfo";
             this.lblMapInfo.ReadOnly = true;
             this.lblMapInfo.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.lblMapInfo.Size = new System.Drawing.Size(240, 145);
+            this.lblMapInfo.Size = new System.Drawing.Size(250, 384);
             this.lblMapInfo.TabIndex = 35;
             this.lblMapInfo.Text = "Выберите инструмент и кликайте по гексам.";
             // 

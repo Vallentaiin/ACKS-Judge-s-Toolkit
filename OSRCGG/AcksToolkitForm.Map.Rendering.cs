@@ -26,11 +26,16 @@ namespace OSRCGG
                 List<MapEdgeRecord> visibleRoads = showRoads ? GetVisibleMapEdges(currentMap.Roads, visibleWorld) : new List<MapEdgeRecord>();
                 List<MapEdgeRecord> visibleRivers = showRivers ? GetVisibleMapEdges(currentMap.Rivers, visibleWorld) : new List<MapEdgeRecord>();
                 int layer = cmbMapLayer.SelectedIndex < 0 ? 0 : cmbMapLayer.SelectedIndex;
-                foreach (HexCellRecord cell in visibleCells)
+                using (Pen cellBorderPen = new Pen(Color.FromArgb(80, 32, 32, 32), 1f))
+                using (Pen selectedCellPen = new Pen(Color.Gold, 3f))
                 {
-                    DrawMapCell(graphics, cell, layer, !exportMode);
+                    foreach (HexCellRecord cell in visibleCells)
+                    {
+                        DrawMapCell(graphics, cell, layer, !exportMode, cellBorderPen, selectedCellPen);
+                    }
                 }
 
+                DrawMapLargeHexGrid(graphics, visibleWorld);
                 DrawMapDomains(graphics, visibleWorld);
                 if (showRoads) DrawMapEdges(graphics, visibleRoads, Color.FromArgb(151, 96, 48), Color.FromArgb(85, 50, 24), 7f);
                 if (showRivers) DrawMapEdges(graphics, visibleRivers, Color.FromArgb(87, 184, 230), Color.FromArgb(36, 119, 172), 7f);
@@ -98,10 +103,11 @@ namespace OSRCGG
         private RectangleF GetVisibleWorldBounds(Rectangle clip)
         {
             if (mapZoom <= 0.001f) return RectangleF.Empty;
-            float left = (clip.Left - pnlHexMap.AutoScrollPosition.X) / mapZoom;
-            float top = (clip.Top - pnlHexMap.AutoScrollPosition.Y) / mapZoom;
-            float right = (clip.Right - pnlHexMap.AutoScrollPosition.X) / mapZoom;
-            float bottom = (clip.Bottom - pnlHexMap.AutoScrollPosition.Y) / mapZoom;
+            Point scroll = GetMapScroll();
+            float left = (clip.Left + scroll.X) / mapZoom;
+            float top = (clip.Top + scroll.Y) / mapZoom;
+            float right = (clip.Right + scroll.X) / mapZoom;
+            float bottom = (clip.Bottom + scroll.Y) / mapZoom;
             const float margin = MapHexSize * 2.5f;
             return RectangleF.FromLTRB(
                 Math.Min(left, right) - margin,
@@ -237,7 +243,7 @@ namespace OSRCGG
             return result;
         }
 
-        private void DrawMapCell(Graphics graphics, HexCellRecord cell, int layer, bool drawSelection)
+        private void DrawMapCell(Graphics graphics, HexCellRecord cell, int layer, bool drawSelection, Pen borderPen, Pen selectedPen)
         {
             PointF center = GetHexCenter(cell.Q, cell.R);
             PointF[] hex = GetHexPolygon(center);
@@ -248,17 +254,14 @@ namespace OSRCGG
                 graphics.FillPolygon(brush, hex);
             }
 
-            using (Pen pen = new Pen(Color.FromArgb(80, 32, 32, 32), 1f))
+            if (borderPen != null)
             {
-                graphics.DrawPolygon(pen, hex);
+                graphics.DrawPolygon(borderPen, hex);
             }
 
-            if (drawSelection && selectedMapCell != null && selectedMapCell.Q == cell.Q && selectedMapCell.R == cell.R)
+            if (drawSelection && selectedPen != null && selectedMapCell != null && selectedMapCell.Q == cell.Q && selectedMapCell.R == cell.R)
             {
-                using (Pen selectedPen = new Pen(Color.Gold, 3f))
-                {
-                    graphics.DrawPolygon(selectedPen, hex);
-                }
+                graphics.DrawPolygon(selectedPen, hex);
             }
 
             if (!chkMapShowIcons.Checked) return;
@@ -501,53 +504,100 @@ namespace OSRCGG
             if (chkMapShowFeatureLabels != null && !chkMapShowFeatureLabels.Checked) return;
             if (mapZoom < 0.5f) return;
 
-            // Названия природных объектов хранятся на гексах/речных ребрах, а в Paint
-            // снова собираются в кластеры. Это сохраняет Excel/XML простыми и не требует
-            // отдельной сложной модели для озёр, морей и рек.
-            foreach (var group in currentMap.Cells
-                .Where(c => c != null && IsWaterCell(c) && !string.IsNullOrWhiteSpace(c.WaterFeatureName))
-                .GroupBy(c => c.WaterFeatureName))
+            if (currentMapWaterFeatureLabels == null || currentMapRiverFeatureLabels == null)
             {
-                List<HexCellRecord> cells = group.ToList();
-                if (cells.Count < 3) continue;
-                PointF center = AverageCellCenter(cells);
-                if (!visibleWorld.Contains(center)) continue;
+                RebuildMapFeatureLabelIndex();
+            }
 
-                string water = WaterFeatureKind(cells);
-                string text = cells[0].WaterFeatureName;
-                bool largeWater = water == "Ocean" || water == "Sea";
-                string display = largeWater ? AddLetterSpacing(text) : text;
-                float size = water == "Ocean" ? 16.5f : water == "Sea" ? 14f : 10.5f;
-                using (Font font = CreateMapFont(size, FontStyle.Italic))
+            foreach (MapFeatureLabelRecord label in currentMapWaterFeatureLabels)
+            {
+                if (label == null || !visibleWorld.Contains(label.Center)) continue;
+
+                using (Font font = CreateMapFont(label.FontSize, FontStyle.Italic))
                 using (StringFormat format = new StringFormat())
                 {
                     format.Alignment = StringAlignment.Center;
                     format.LineAlignment = StringAlignment.Center;
                     format.FormatFlags |= StringFormatFlags.NoWrap;
-                    RectangleF rect = CenteredSingleLineTextBounds(graphics, display, font, center, largeWater ? 290f : 190f, 22f, 48f);
-                    DrawOutlinedText(graphics, display, font, rect, format, Color.FromArgb(225, 230, 244, 255), Color.FromArgb(120, 8, 28, 52), largeWater ? 3f : 2.2f);
+                    RectangleF rect = CenteredSingleLineTextBounds(graphics, label.DisplayText, font, label.Center, label.MinWidth, label.HorizontalPadding, label.Height);
+                    DrawOutlinedText(graphics, label.DisplayText, font, rect, format, Color.FromArgb(225, 230, 244, 255), Color.FromArgb(120, 8, 28, 52), label.OutlineWidth);
                 }
             }
 
-            foreach (var group in currentMap.Rivers
-                .Where(e => e != null && !string.IsNullOrWhiteSpace(e.FeatureName))
-                .GroupBy(e => e.FeatureName))
+            foreach (MapFeatureLabelRecord label in currentMapRiverFeatureLabels)
             {
-                List<MapEdgeRecord> river = group.ToList();
-                if (river.Count < 6) continue;
-                PointF center = AverageEdgeCenter(river);
-                if (!visibleWorld.Contains(center)) continue;
+                if (label == null || !visibleWorld.Contains(label.Center)) continue;
 
-                using (Font font = CreateMapFont(9.8f, FontStyle.Italic))
+                using (Font font = CreateMapFont(label.FontSize, FontStyle.Italic))
                 using (StringFormat format = new StringFormat())
                 {
                     format.Alignment = StringAlignment.Center;
                     format.LineAlignment = StringAlignment.Center;
                     format.FormatFlags |= StringFormatFlags.NoWrap;
-                    RectangleF rect = CenteredSingleLineTextBounds(graphics, group.Key, font, center, 180f, 18f, 32f);
-                    DrawOutlinedText(graphics, group.Key, font, rect, format, Color.FromArgb(235, 172, 226, 255), Color.FromArgb(150, 8, 54, 84), 2.3f);
+                    RectangleF rect = CenteredSingleLineTextBounds(graphics, label.DisplayText, font, label.Center, label.MinWidth, label.HorizontalPadding, label.Height);
+                    DrawOutlinedText(graphics, label.DisplayText, font, rect, format, Color.FromArgb(235, 172, 226, 255), Color.FromArgb(150, 8, 54, 84), label.OutlineWidth);
                 }
             }
+        }
+
+        private void RebuildMapFeatureLabelIndex()
+        {
+            List<MapFeatureLabelRecord> waterLabels = new List<MapFeatureLabelRecord>();
+            List<MapFeatureLabelRecord> riverLabels = new List<MapFeatureLabelRecord>();
+
+            if (currentMap != null)
+            {
+                // Названия природных объектов хранятся на гексах/речных ребрах. Группируем
+                // их только при изменении карты, чтобы pan/zoom не проходил всю модель.
+                foreach (var group in (currentMap.Cells ?? new List<HexCellRecord>())
+                    .Where(c => c != null && IsWaterCell(c) && !string.IsNullOrWhiteSpace(c.WaterFeatureName))
+                    .GroupBy(c => c.WaterFeatureName))
+                {
+                    List<HexCellRecord> cells = group.ToList();
+                    if (cells.Count < 3) continue;
+
+                    string water = WaterFeatureKind(cells);
+                    string text = cells[0].WaterFeatureName;
+                    bool largeWater = water == "Ocean" || water == "Sea";
+                    waterLabels.Add(new MapFeatureLabelRecord
+                    {
+                        Text = text,
+                        DisplayText = largeWater ? AddLetterSpacing(text) : text,
+                        Kind = water,
+                        Center = AverageCellCenter(cells),
+                        FontSize = water == "Ocean" ? 16.5f : water == "Sea" ? 14f : 10.5f,
+                        MinWidth = largeWater ? 290f : 190f,
+                        HorizontalPadding = 22f,
+                        Height = 48f,
+                        OutlineWidth = largeWater ? 3f : 2.2f
+                    });
+                }
+
+                foreach (var group in (currentMap.Rivers ?? new List<MapEdgeRecord>())
+                    .Where(e => e != null && !string.IsNullOrWhiteSpace(e.FeatureName))
+                    .GroupBy(e => e.FeatureName))
+                {
+                    List<MapEdgeRecord> river = group.ToList();
+                    if (river.Count < 6) continue;
+
+                    string text = group.Key;
+                    riverLabels.Add(new MapFeatureLabelRecord
+                    {
+                        Text = text,
+                        DisplayText = text,
+                        Kind = "River",
+                        Center = AverageEdgeCenter(river),
+                        FontSize = 9.8f,
+                        MinWidth = 180f,
+                        HorizontalPadding = 18f,
+                        Height = 32f,
+                        OutlineWidth = 2.3f
+                    });
+                }
+            }
+
+            currentMapWaterFeatureLabels = waterLabels;
+            currentMapRiverFeatureLabels = riverLabels;
         }
 
         private string WaterFeatureKind(List<HexCellRecord> cells)
@@ -1470,6 +1520,69 @@ namespace OSRCGG
             return points;
         }
 
+        private PointF[] GetHexPolygon(PointF center, float size)
+        {
+            PointF[] points = new PointF[6];
+            for (int i = 0; i < 6; i++)
+            {
+                double angle = Math.PI / 180d * (30 + 60 * i);
+                points[i] = new PointF(
+                    center.X + size * (float)Math.Cos(angle),
+                    center.Y + size * (float)Math.Sin(angle));
+            }
+
+            return points;
+        }
+
+        private void DrawMapLargeHexGrid(Graphics graphics, RectangleF visibleWorld)
+        {
+            if (graphics == null || currentMap == null) return;
+            if (chkMapShowLargeHexGrid == null || !chkMapShowLargeHexGrid.Checked) return;
+
+            const int scale = 4; // 4 x 6-mile hexes = 24 miles.
+            float largeSize = MapHexSize * scale;
+            float margin = largeSize * 2f;
+            int minR = (int)Math.Floor((visibleWorld.Top - 38f - margin) / MapHexRowHeight);
+            int maxR = (int)Math.Ceiling((visibleWorld.Bottom - 38f + margin) / MapHexRowHeight);
+
+            using (Pen pen = new Pen(Color.FromArgb(165, 18, 24, 28), 2.4f))
+            {
+                pen.LineJoin = LineJoin.Round;
+                for (int r = FloorToMultiple(minR, scale); r <= maxR; r += scale)
+                {
+                    double rowShift = ((r - (r & 1)) / 2.0) + ((r & 1) == 1 ? 0.5 : 0.0);
+                    int minAxialQ = (int)Math.Floor((visibleWorld.Left - 38f - margin) / MapHexWidth - rowShift);
+                    int maxAxialQ = (int)Math.Ceiling((visibleWorld.Right - 38f + margin) / MapHexWidth - rowShift);
+
+                    for (int axialQ = FloorToMultiple(minAxialQ, scale); axialQ <= maxAxialQ; axialQ += scale)
+                    {
+                        int offsetQ = axialQ + ((r - (r & 1)) / 2);
+                        PointF center = GetHexCenter(offsetQ, r);
+                        PointF[] hex = GetHexPolygon(center, largeSize);
+                        if (!PolygonIntersectsBounds(hex, visibleWorld)) continue;
+                        graphics.DrawPolygon(pen, hex);
+                    }
+                }
+            }
+        }
+
+        private int FloorToMultiple(int value, int divisor)
+        {
+            int remainder = value % divisor;
+            if (remainder < 0) remainder += divisor;
+            return value - remainder;
+        }
+
+        private bool PolygonIntersectsBounds(PointF[] polygon, RectangleF bounds)
+        {
+            if (polygon == null || polygon.Length == 0) return false;
+            float left = polygon.Min(p => p.X);
+            float right = polygon.Max(p => p.X);
+            float top = polygon.Min(p => p.Y);
+            float bottom = polygon.Max(p => p.Y);
+            return RectangleF.FromLTRB(left, top, right, bottom).IntersectsWith(bounds);
+        }
+
         private void UpdateMapScrollSize()
         {
             if (currentMap == null || pnlHexMap == null) return;
@@ -1519,6 +1632,7 @@ namespace OSRCGG
             else if (tool == 5 && !IsWaterCell(cell)) cell.Elevation = GetSelectedElevationKey();
             else if (tool == 6)
             {
+                bool rebuiltIndexes = false;
                 cell.Water = GetSelectedWaterKey();
                 NormalizeWaterSurface(cell);
                 if (cell.Water != "None")
@@ -1533,7 +1647,13 @@ namespace OSRCGG
                     if (removedSettlements || changedDomains)
                     {
                         RebuildCurrentMapIndex();
+                        rebuiltIndexes = true;
                     }
+                }
+
+                if (!rebuiltIndexes)
+                {
+                    RebuildMapFeatureLabelIndex();
                 }
             }
             else if (tool == 7) EraseMapCell(cell);
@@ -1613,9 +1733,10 @@ namespace OSRCGG
 
         private PointF ViewToWorld(Point point)
         {
+            Point scroll = GetMapScroll();
             return new PointF(
-                (point.X - pnlHexMap.AutoScrollPosition.X) / mapZoom,
-                (point.Y - pnlHexMap.AutoScrollPosition.Y) / mapZoom);
+                (point.X + scroll.X) / mapZoom,
+                (point.Y + scroll.Y) / mapZoom);
         }
 
         private DomainRecord GetStrongholdAtMapPoint(HexCellRecord cell, Point viewPoint)
@@ -1771,7 +1892,7 @@ namespace OSRCGG
             ClearHoveredMapLabel();
             mapPanning = true;
             mapPanMouseStart = e.Location;
-            mapPanScrollStart = new Point(-pnlHexMap.AutoScrollPosition.X, -pnlHexMap.AutoScrollPosition.Y);
+            mapPanScrollStart = GetMapScroll();
             pnlHexMap.Cursor = Cursors.SizeAll;
             pnlHexMap.Capture = true;
         }
@@ -1806,7 +1927,10 @@ namespace OSRCGG
             }
 
             float oldZoom = mapZoom;
-            PointF worldBefore = ViewToWorld(e.Location);
+            Point scrollBefore = GetMapScroll();
+            PointF worldBefore = new PointF(
+                (e.Location.X + scrollBefore.X) / oldZoom,
+                (e.Location.Y + scrollBefore.Y) / oldZoom);
             if (e.Delta > 0) mapZoom *= 1.15f;
             else mapZoom /= 1.15f;
             mapZoom = Math.Max(0.35f, Math.Min(3.5f, mapZoom));
@@ -1819,13 +1943,19 @@ namespace OSRCGG
             pnlHexMap.Invalidate();
         }
 
+        private Point GetMapScroll()
+        {
+            return new Point(-pnlHexMap.AutoScrollPosition.X, -pnlHexMap.AutoScrollPosition.Y);
+        }
+
         private void SetMapScroll(Point desired)
         {
             int maxX = Math.Max(0, pnlHexMap.AutoScrollMinSize.Width - pnlHexMap.ClientSize.Width);
             int maxY = Math.Max(0, pnlHexMap.AutoScrollMinSize.Height - pnlHexMap.ClientSize.Height);
             int x = Math.Max(0, Math.Min(maxX, desired.X));
             int y = Math.Max(0, Math.Min(maxY, desired.Y));
-            if (-pnlHexMap.AutoScrollPosition.X == x && -pnlHexMap.AutoScrollPosition.Y == y) return;
+            Point current = GetMapScroll();
+            if (current.X == x && current.Y == y) return;
             pnlHexMap.AutoScrollPosition = new Point(x, y);
             pnlHexMap.Invalidate();
         }
@@ -1834,8 +1964,9 @@ namespace OSRCGG
         {
             if (pnlHexMap == null) return;
 
-            int currentX = -pnlHexMap.AutoScrollPosition.X;
-            int currentY = -pnlHexMap.AutoScrollPosition.Y;
+            Point current = GetMapScroll();
+            int currentX = current.X;
+            int currentY = current.Y;
             int maxX = Math.Max(0, pnlHexMap.AutoScrollMinSize.Width - pnlHexMap.ClientSize.Width);
             int maxY = Math.Max(0, pnlHexMap.AutoScrollMinSize.Height - pnlHexMap.ClientSize.Height);
             int clampedX = Math.Max(0, Math.Min(maxX, currentX));

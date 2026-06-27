@@ -84,6 +84,7 @@ namespace OSRCGG.Tests
                 NewTest("character-rules", "Character rules", TestCharacterRulesService, "character", "rules"),
                 NewTest("character-generator", "Character generator", TestCharacterGenerator, "character"),
                 NewTest("map-normalizer", "Map normalizer", TestMapDataNormalizer, "map"),
+                NewTest("wilderness-hex", "Wilderness hex modifiers", TestWildernessHexModifiers, "map", "wilderness"),
                 NewTest("demand", "Demand service", TestMapDemandService, "trade", "map"),
                 NewTest("realms", "Realm titles and clan names", TestRealmTitlesAndClanNames, "realm", "names"),
                 NewTest("region", "Region generator", TestRegionMapGeneratorCivilizationLayers, "region", "map"),
@@ -176,6 +177,31 @@ namespace OSRCGG.Tests
             AssertTrue(!string.IsNullOrWhiteSpace(npc.Appearance), "NPC generation creates appearance");
             AssertTrue(npc.HitPoints >= 1, "NPC generation creates positive hit points");
 
+            CharacterGenerator selectedOccupationGenerator = new CharacterGenerator(new Random(12345));
+            CharacterGenerationRequest selectedOccupationRequest = CreateCharacterGenerationRequest("NPC", "Fighter", 0);
+            selectedOccupationRequest.RequestedOccupation = "Vintner";
+            CharacterGenerationResult selectedOccupationNpc = selectedOccupationGenerator.GenerateNpc(selectedOccupationRequest);
+
+            AssertEqual("Vintner", selectedOccupationNpc.Occupation, "NPC generation respects selected occupation");
+            AssertEqual(0, selectedOccupationNpc.Level, "Selected occupation creates a zero-level NPC when level is zero");
+
+            CharacterGenerator ignoredOccupationGenerator = new CharacterGenerator(new Random(12345));
+            CharacterGenerationRequest ignoredOccupationRequest = CreateCharacterGenerationRequest("NPC", "Fighter", 5);
+            ignoredOccupationRequest.RequestedOccupation = "Vintner";
+            CharacterGenerationResult ignoredOccupationNpc = ignoredOccupationGenerator.GenerateNpc(ignoredOccupationRequest);
+
+            AssertEqual(5, ignoredOccupationNpc.Level, "Leveled NPC generation ignores selected occupation");
+            AssertTrue(!string.Equals("Vintner", ignoredOccupationNpc.Occupation, StringComparison.OrdinalIgnoreCase), "Leveled NPC occupation is not the ignored zero-level job");
+
+            CharacterGenerator npcButtonGenerator = new CharacterGenerator(new Random(12345));
+            CharacterGenerationResult npcFromPlayerUiState = npcButtonGenerator.GenerateNpc(CreateCharacterGenerationRequest("Player", "Fighter", 5));
+
+            AssertEqual(5, npcFromPlayerUiState.Level, "NPC generation respects requested level even when current UI kind is Player");
+
+            string appearance = selectedOccupationGenerator.GenerateAppearance(CreateCharacterGenerationRequest("NPC", "Fighter", 0));
+            AssertTrue(!string.IsNullOrWhiteSpace(appearance), "Appearance reroll returns text");
+            AssertTrue(!string.IsNullOrWhiteSpace(selectedOccupationGenerator.GenerateAppearance(null)), "Appearance reroll tolerates a null request");
+
             CharacterGenerator leveledNpcGenerator = new CharacterGenerator(new Random(12345));
             CharacterGenerationResult leveledNpc = leveledNpcGenerator.GenerateNpc(CreateCharacterGenerationRequest("NPC", "Fighter", 5));
 
@@ -186,9 +212,11 @@ namespace OSRCGG.Tests
 
             CharacterGenerator proficiencyGenerator = new CharacterGenerator(new Random(12345));
             string randomizedProficiencies = proficiencyGenerator.RandomizeProficiencies(CreateCharacterGenerationRequest("Player", "Fighter", 5));
+            string nullRequestProficiencies = proficiencyGenerator.RandomizeProficiencies(null);
             string[] splitProficiencies = CharacterRulesService.SplitProficiencies(randomizedProficiencies);
 
             AssertTrue(splitProficiencies.Contains("Adventuring"), "Randomized proficiencies include Adventuring");
+            AssertTrue(CharacterRulesService.SplitProficiencies(nullRequestProficiencies).Contains("Adventuring"), "Randomized proficiencies tolerate a null request");
             AssertEqual(
                 splitProficiencies.Length,
                 splitProficiencies.Select(CharacterRulesService.NormalizeProficiencyName).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
@@ -222,6 +250,9 @@ namespace OSRCGG.Tests
                 IsEnglish = false,
                 CurrentKind = kind,
                 CurrentClassName = className,
+                CurrentSex = "Female",
+                RequestedOccupation = "",
+                ForceZeroLevelOccupation = false,
                 RequestedLevel = level,
                 MaximumLevel = 14,
                 Attributes = new Dictionary<string, int>
@@ -334,6 +365,100 @@ namespace OSRCGG.Tests
             AssertTrue(dirtyConnection.PathPoints.All(p => !DungeonGeometry.IsPointInsideRoomInterior(dirtyLevel.Rooms[0], p.X, p.Y, 0.01)
                     && !DungeonGeometry.IsPointInsideRoomInterior(dirtyLevel.Rooms[1], p.X, p.Y, 0.01)),
                 "Dungeon path normalization keeps path points out of linked room interiors");
+        }
+
+        private static void TestWildernessHexModifiers()
+        {
+            WildernessHexModifiers grassland = WildernessHexRules.GetModifiers(
+                new HexCellRecord { Terrain = "Grasslands", Elevation = "Plains", Water = "None" },
+                false);
+            AssertEqual("Grassland (other)", grassland.TerrainType, "Grasslands use the grassland evasion row");
+            AssertEqual("6+", grassland.NavigationThrow, "Grasslands navigation throw follows wilderness table");
+            AssertEqual("x1", grassland.SpeedMultiplier, "Grasslands speed multiplier follows wilderness table");
+            AssertEqual("9+ / 11+ / 13+ / 15+ / 17+", string.Join(" / ", grassland.EvasionThrowsByPartySize), "Grasslands evasion throws follow party-size columns");
+
+            WildernessHexModifiers jungle = WildernessHexRules.GetModifiers(
+                new HexCellRecord { Terrain = "Rainforest", Elevation = "Plains", Water = "None" },
+                false);
+            AssertEqual("Jungle (any)", jungle.TerrainType, "Rainforest maps to jungle wilderness terrain");
+            AssertEqual("14+", jungle.NavigationThrow, "Jungle navigation throw is hard");
+            AssertEqual("x1/2", jungle.SpeedMultiplier, "Jungle speed multiplier follows wilderness table");
+            AssertEqual("2+ / 4+ / 6+ / 8+ / 10+", string.Join(" / ", jungle.EvasionThrowsByPartySize), "Jungle evasion throws follow party-size columns");
+
+            WildernessHexModifiers forestedMountains = WildernessHexRules.GetModifiers(
+                new HexCellRecord { Terrain = "Forest", Elevation = "Mountains", Water = "None" },
+                false);
+            AssertEqual("Mountains (forested)", forestedMountains.TerrainType, "Forested mountain hexes use the forested mountain evasion row");
+            AssertEqual("6+", forestedMountains.NavigationThrow, "Mountains navigation throw overrides forest terrain");
+            AssertEqual("x1/2", forestedMountains.SpeedMultiplier, "Mountain speed multiplier overrides forest terrain");
+            AssertEqual("5+ / 7+ / 9+ / 11+ / 13+", string.Join(" / ", forestedMountains.EvasionThrowsByPartySize), "Forested mountain evasion throws follow party-size columns");
+
+            List<string> roadLines = WildernessHexRules.BuildDisplayLines(
+                new HexCellRecord { Terrain = "Scrub", Elevation = "Plains", Water = "None" },
+                true,
+                true);
+            AssertTrue(roadLines.Any(line => line.Contains("road x3/2") && line.Contains("drivers x2")), "Road hex info includes road speed modifiers");
+
+            List<string> riverForagingLines = WildernessHexRules.BuildDisplayLines(
+                new HexCellRecord { Terrain = "Scrub", Elevation = "Plains", Water = "None" },
+                false,
+                true,
+                "Outlands",
+                true);
+            AssertTrue(riverForagingLines.Any(line => line.IndexOf("Water: automatic", StringComparison.OrdinalIgnoreCase) >= 0),
+                "River hex foraging info marks water as automatic");
+            AssertTrue(riverForagingLines.Any(line => line.IndexOf("Hunt food: 12+ in outlands", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Outlands domain classification selects the outlands hunting throw");
+            AssertFalse(riverForagingLines.Any(line => line.IndexOf("Food without stealing:", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Outlands hex info omits no-stealing penalties because none apply");
+            AssertFalse(riverForagingLines.Any(line => line.IndexOf("Weather:", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Hex info does not show weather penalties before weather exists in the program");
+            AssertTrue(riverForagingLines.Any(line => line.IndexOf("triggers a wilderness encounter check", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Hunting text explains that hunting triggers a wilderness encounter check");
+            AssertTrue(riverForagingLines.Any(line => line.IndexOf("with Survival proficiency", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Foraging text explains the Survival bonus");
+
+            List<string> desertForagingLines = WildernessHexRules.BuildDisplayLines(
+                new HexCellRecord { Terrain = "Desert", Elevation = "Plains", Water = "None" },
+                false,
+                false,
+                "Civilized",
+                true);
+            AssertTrue(desertForagingLines.Any(line => line.IndexOf("Wood: 14+", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Non-forest terrain uses the hard firewood foraging throw");
+            AssertTrue(desertForagingLines.Any(line => line.IndexOf("Water: 18+", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Barrens and desert terrain use the hard water foraging throw");
+            AssertTrue(desertForagingLines.Any(line => line.IndexOf("Food: 22+", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Barrens and desert terrain use the hard food foraging throw");
+            AssertTrue(desertForagingLines.Any(line => line.IndexOf("Food without stealing: -4", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Civilized territory applies the no-stealing food foraging penalty");
+
+            List<string> forestForagingLines = WildernessHexRules.BuildDisplayLines(
+                new HexCellRecord { Terrain = "Forest", Elevation = "Plains", Water = "None" },
+                false,
+                false,
+                null,
+                true);
+            AssertTrue(forestForagingLines.Any(line => line.IndexOf("Wood: 3+", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Forest terrain uses the easy firewood foraging throw");
+            AssertTrue(forestForagingLines.Any(line => line.IndexOf("Hunt food: 10+ in unsettled wilderness", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Hexes outside domains use the unsettled hunting throw");
+            AssertFalse(forestForagingLines.Any(line => line.IndexOf("Food without stealing:", StringComparison.OrdinalIgnoreCase) >= 0),
+                "Unsettled hex info omits no-stealing penalties because none apply");
+
+            List<string> russianLines = WildernessHexRules.BuildDisplayLines(
+                new HexCellRecord { Terrain = "Marsh", Elevation = "Plains", Water = "None" },
+                false,
+                false);
+            AssertTrue(russianLines.Any(line => line.Contains("Навигация: 10+")), "Russian hex info includes localized navigation");
+            AssertTrue(russianLines.Any(line => line.Contains("Уклонение")
+                && line.Contains("размер отряда")
+                && line.Contains("цель на d20")), "Russian hex info explains evasion columns");
+
+            AssertEqual(
+                0,
+                WildernessHexRules.BuildDisplayLines(new HexCellRecord { Terrain = "Grasslands", Elevation = "Plains", Water = "Lake" }, false, true).Count,
+                "Water hexes do not show wilderness expedition terrain modifiers");
         }
 
         private static void TestMapDemandService()
@@ -525,6 +650,77 @@ namespace OSRCGG.Tests
                 string baronyName = names.GenerateRealmName(new Random(i), "english", "Test", "Barony", true);
                 AssertFalse(baronyName.StartsWith("Корона ", StringComparison.Ordinal), "Russian barony names do not use crown wording");
             }
+            AssertNameGenerationDiversity(names);
+        }
+
+        private static void AssertNameGenerationDiversity(NameGenerationService names)
+        {
+            AssertTrue(HasUnexpectedInternalCapital("BlackWater"), "Mid-word capital detector catches joined compounds");
+            AssertFalse(HasUnexpectedInternalCapital("O'Connor"), "Mid-word capital detector allows apostrophe names");
+
+            Random russianEnglishRandom = new Random(9100);
+            List<string> russianEnglishNames = Enumerable.Range(0, 40)
+                .Select(i => names.GeneratePersonalName(russianEnglishRandom, "english", i % 2 == 0, true))
+                .ToList();
+            string[] roughRussianFragments = { " те ", " оф ", "доттир", "Бакер", "Арморер", "Навигатор" };
+            AssertTrue(
+                russianEnglishNames.Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 34,
+                "Russian English-name generation keeps variety");
+            AssertFalse(
+                russianEnglishNames.Any(ContainsLatinLetter),
+                "Russian English-name generation transliterates all Latin letters");
+            AssertFalse(
+                russianEnglishNames.Any(name => roughRussianFragments.Any(fragment => name.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0)),
+                "Russian English-name generation avoids raw English byname fragments");
+
+            string[] diversityCultures = { "english", "russian", "arabic", "persian", "japanese", "old_norse", "dwarf", "elf" };
+            foreach (string culture in diversityCultures)
+            {
+                Random personalRandom = new Random(7100 + culture.Length);
+                List<string> personalNames = Enumerable.Range(0, 40)
+                    .Select(i => names.GeneratePersonalName(personalRandom, culture, i % 2 == 0, false))
+                    .ToList();
+                AssertTrue(
+                    personalNames.Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 36,
+                    "Name generator keeps personal-name variety for " + culture);
+                AssertFalse(
+                    personalNames.Any(HasUnexpectedInternalCapital),
+                    "Name generator avoids mid-word capitals in personal names for " + culture);
+
+                Random dynastyRandom = new Random(8100 + culture.Length);
+                List<string> dynastyNames = Enumerable.Range(0, 40)
+                    .Select(i => names.GenerateDynastyName(dynastyRandom, culture, false))
+                    .ToList();
+                AssertTrue(
+                    dynastyNames.Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 28,
+                    "Name generator keeps dynasty-name variety for " + culture);
+                AssertFalse(
+                    dynastyNames.Any(HasUnexpectedInternalCapital),
+                    "Name generator avoids mid-word capitals in dynasty names for " + culture);
+            }
+        }
+
+        private static bool HasUnexpectedInternalCapital(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return false;
+
+            for (int i = 1; i < name.Length; i++)
+            {
+                if (!char.IsUpper(name[i])) continue;
+
+                char previous = name[i - 1];
+                if (char.IsWhiteSpace(previous) || previous == '\'' || previous == '’' || previous == '-') continue;
+                if (char.IsLower(previous)) return true;
+            }
+
+            return false;
+        }
+
+        private static bool ContainsLatinLetter(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return false;
+
+            return value.Any(c => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
         }
 
         private static void AssertRegenerationDensityMatchesSimplePreset(RegionMapGenerator generator, string seed, string civilizationLevel)

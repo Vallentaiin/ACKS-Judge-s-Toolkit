@@ -66,6 +66,8 @@ namespace OSRCGG
         private Dictionary<string, List<MapEdgeRecord>> currentMapRiversByCell = new Dictionary<string, List<MapEdgeRecord>>();
         private Dictionary<string, List<HexFeatureRecord>> currentMapFeaturesByCell = new Dictionary<string, List<HexFeatureRecord>>();
         private Dictionary<string, DungeonRecord> currentMapDungeonsById = new Dictionary<string, DungeonRecord>(StringComparer.OrdinalIgnoreCase);
+        private List<MapFeatureLabelRecord> currentMapWaterFeatureLabels = new List<MapFeatureLabelRecord>();
+        private List<MapFeatureLabelRecord> currentMapRiverFeatureLabels = new List<MapFeatureLabelRecord>();
         private List<HexCellRecord> currentMapDrawOrder = new List<HexCellRecord>();
         private List<HexCellRecord> currentPaintVisibleCells;
         private RectangleF currentPaintVisibleWorld = RectangleF.Empty;
@@ -97,6 +99,7 @@ namespace OSRCGG
         private CheckBox chkMapShowStrongholds;
         private CheckBox chkMapUseSmallMapIcons;
         private CheckBox chkMapShowHexCoordinates;
+        private CheckBox chkMapShowLargeHexGrid;
         private CheckBox chkMapShowHexFeatures;
         private CheckBox chkMapEraseAll;
         private CheckBox chkMapEraseRoads;
@@ -133,6 +136,19 @@ namespace OSRCGG
             public float LabelOffsetX { get; set; }
             public float LabelOffsetY { get; set; }
             public bool SuppressNeighbors { get; set; }
+        }
+
+        private sealed class MapFeatureLabelRecord
+        {
+            public string Text { get; set; }
+            public string DisplayText { get; set; }
+            public string Kind { get; set; }
+            public PointF Center { get; set; }
+            public float FontSize { get; set; }
+            public float MinWidth { get; set; }
+            public float HorizontalPadding { get; set; }
+            public float Height { get; set; }
+            public float OutlineWidth { get; set; }
         }
 
         private sealed class MapPickerSpec
@@ -223,7 +239,8 @@ namespace OSRCGG
             pnlHexMap.MouseDown += pnlHexMap_MouseDown;
             pnlHexMap.MouseMove += pnlHexMap_MouseMove;
             pnlHexMap.MouseUp += pnlHexMap_MouseUp;
-            pnlHexMap.MouseWheel += pnlHexMap_MouseWheel;
+            pnlHexMap.SuppressMouseWheelAutoScroll = true;
+            pnlHexMap.MouseWheelWithoutAutoScroll += pnlHexMap_MouseWheel;
             pnlHexMap.MouseEnter += (s, e) => pnlHexMap.Focus();
             pnlHexMap.MouseLeave += (s, e) => ClearHoveredMapLabel();
             pnlHexMap.Resize += (s, e) =>
@@ -376,6 +393,14 @@ namespace OSRCGG
                 chkMapShowHexCoordinates.Checked = false;
                 chkMapShowHexCoordinates.CheckedChanged += (s, e) => pnlHexMap.Invalidate();
                 pnlMapTools.Controls.Add(chkMapShowHexCoordinates);
+            }
+
+            if (chkMapShowLargeHexGrid == null)
+            {
+                chkMapShowLargeHexGrid = CreateMapDisplayCheckBox(isEnglish ? "24-mile grid" : "Сетка 24 мили");
+                chkMapShowLargeHexGrid.Checked = false;
+                chkMapShowLargeHexGrid.CheckedChanged += (s, e) => pnlHexMap.Invalidate();
+                pnlMapTools.Controls.Add(chkMapShowLargeHexGrid);
             }
 
             if (chkMapShowHexFeatures == null)
@@ -684,8 +709,8 @@ namespace OSRCGG
             if (chkMapShowStrongholdLabels != null) chkMapShowStrongholdLabels.SetBounds(left, 1010 + postToolShift, leftWidth, 22);
             if (chkMapShowHexFeatures != null) chkMapShowHexFeatures.SetBounds(left, 1034 + postToolShift, leftWidth, 22);
             if (chkMapShowHexCoordinates != null) chkMapShowHexCoordinates.SetBounds(left, 1058 + postToolShift, leftWidth, 22);
-            int domainControlsTop = 1158 + postToolShift;
-            lblMapInfo.SetBounds(left, 1086 + postToolShift, leftWidth, 60);
+            if (chkMapShowLargeHexGrid != null) chkMapShowLargeHexGrid.SetBounds(left, 1082 + postToolShift, leftWidth, 22);
+            int domainControlsTop = 1182 + postToolShift;
 
             lblMapSettlement.SetBounds(right, 8, rightWidth, 20);
             cmbMapSettlementLibrary.SetBounds(right, 28, rightWidth, 24);
@@ -714,6 +739,9 @@ namespace OSRCGG
             btnMapImportExcel.SetBounds(right + 130, 716, 120, 28);
             if (btnMapExportPng != null) btnMapExportPng.SetBounds(right, 750, 120, 28);
             if (btnMapGenerateFeatureNames != null) btnMapGenerateFeatureNames.SetBounds(right + 130, 750, 120, 28);
+            int mapInfoTop = 786;
+            int mapInfoHeight = Math.Max(180, domainControlsTop - mapInfoTop - 12);
+            lblMapInfo.SetBounds(right, mapInfoTop, rightWidth, mapInfoHeight);
             LayoutMapDomainControls(left, right, leftWidth, rightWidth, domainControlsTop);
         }
 
@@ -1359,6 +1387,7 @@ namespace OSRCGG
             if (chkMapShowStrongholdLabels != null) chkMapShowStrongholdLabels.Text = isEnglish ? "Stronghold names" : "Названия крепостей";
             if (chkMapShowHexFeatures != null) chkMapShowHexFeatures.Text = isEnglish ? "Hex features" : "Особенности гексов";
             if (chkMapShowHexCoordinates != null) chkMapShowHexCoordinates.Text = isEnglish ? "Hex coordinates" : "Координаты гексов";
+            if (chkMapShowLargeHexGrid != null) chkMapShowLargeHexGrid.Text = isEnglish ? "24-mile grid" : "Сетка 24 мили";
             if (chkMapEraseAll != null) chkMapEraseAll.Text = isEnglish ? "All" : "Всё";
             if (chkMapEraseRoads != null) chkMapEraseRoads.Text = isEnglish ? "Roads" : "Дороги";
             if (chkMapEraseRivers != null) chkMapEraseRivers.Text = isEnglish ? "Rivers" : "Реки";
@@ -2099,6 +2128,8 @@ namespace OSRCGG
                 currentMapRiversByCell = new Dictionary<string, List<MapEdgeRecord>>();
                 currentMapFeaturesByCell = new Dictionary<string, List<HexFeatureRecord>>();
                 currentMapDungeonsById = new Dictionary<string, DungeonRecord>(StringComparer.OrdinalIgnoreCase);
+                currentMapWaterFeatureLabels = new List<MapFeatureLabelRecord>();
+                currentMapRiverFeatureLabels = new List<MapFeatureLabelRecord>();
                 currentMapDrawOrder = new List<HexCellRecord>();
                 currentMapWorldBounds = RectangleF.Empty;
                 currentMapMinQ = currentMapMaxQ = currentMapMinR = currentMapMaxR = 0;
@@ -2115,6 +2146,7 @@ namespace OSRCGG
                 .ThenBy(c => c.Q)
                 .ToList();
             RebuildMapObjectIndexes();
+            RebuildMapFeatureLabelIndex();
             RebuildMapWorldBounds();
         }
 
@@ -3018,6 +3050,7 @@ namespace OSRCGG
         {
             bool changedDomains = false;
             bool changedIndexes = false;
+            bool changedFeatureLabels = false;
             bool eraseAll = chkMapEraseAll == null || chkMapEraseAll.Checked;
             bool eraseSettlements = eraseAll || (chkMapEraseSettlements != null && chkMapEraseSettlements.Checked);
             bool eraseRoads = eraseAll || (chkMapEraseRoads != null && chkMapEraseRoads.Checked);
@@ -3065,11 +3098,13 @@ namespace OSRCGG
                 cell.Elevation = "Plains";
                 cell.Water = "None";
                 NormalizeWaterSurface(cell);
+                changedFeatureLabels = true;
             }
 
             if (eraseNames)
             {
                 ClearMapFeatureNamesAtCell(cell);
+                changedFeatureLabels = true;
             }
 
             if (changedDomains)
@@ -3080,6 +3115,10 @@ namespace OSRCGG
             if (changedIndexes)
             {
                 RebuildCurrentMapIndex();
+            }
+            else if (changedFeatureLabels)
+            {
+                RebuildMapFeatureLabelIndex();
             }
         }
 
@@ -3717,13 +3756,27 @@ namespace OSRCGG
                     + "\r\n" + (isEnglish ? "Water: " : "Вода: ") + selectedMapCell.Water;
             }
 
-            if (currentMap != null && currentMap.Roads.Any(e => EdgeTouchesCell(e, selectedMapCell)))
+            DomainRecord domainAtCell = GetDomainAtCell(selectedMapCell);
+            bool selectedHexHasRoad = currentMap != null && currentMap.Roads.Any(e => EdgeTouchesCell(e, selectedMapCell));
+            bool selectedHexHasRiver = currentMap != null && currentMap.Rivers.Any(e => EdgeTouchesCell(e, selectedMapCell));
+
+            if (selectedHexHasRoad)
             {
                 info += "\r\n" + (isEnglish ? "Road: yes" : "\u0414\u043e\u0440\u043e\u0433\u0430: \u0435\u0441\u0442\u044c");
             }
-            if (currentMap != null && currentMap.Rivers.Any(e => EdgeTouchesCell(e, selectedMapCell)))
+            if (selectedHexHasRiver)
             {
                 info += "\r\n" + (isEnglish ? "River: yes" : "\u0420\u0435\u043a\u0430: \u0435\u0441\u0442\u044c");
+            }
+            List<string> wildernessLines = WildernessHexRules.BuildDisplayLines(
+                selectedMapCell,
+                selectedHexHasRoad,
+                selectedHexHasRiver,
+                domainAtCell == null ? null : domainAtCell.Classification,
+                isEnglish);
+            if (wildernessLines.Count > 0)
+            {
+                info += "\r\n" + string.Join("\r\n", wildernessLines);
             }
             List<HexFeatureRecord> features = GetHexFeaturesAtCell(selectedMapCell);
             if (features.Count > 0)
@@ -3748,7 +3801,6 @@ namespace OSRCGG
                 info += "\r\n" + (isEnglish ? "Stronghold: " : "\u041a\u0440\u0435\u043f\u043e\u0441\u0442\u044c: ")
                     + strongholdName + " (" + placement + ", Class VI)";
             }
-            DomainRecord domainAtCell = GetDomainAtCell(selectedMapCell);
             if (domainAtCell != null)
             {
                 info += "\r\n" + (isEnglish ? "Domain: " : "\u0414\u043e\u043c\u0435\u043d: ")

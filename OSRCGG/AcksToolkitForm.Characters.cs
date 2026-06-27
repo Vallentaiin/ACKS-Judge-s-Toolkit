@@ -24,6 +24,10 @@ namespace OSRCGG
         private CheckBox chkCharacterGenerateName;
         private ComboBox cmbCharacterNameCulture;
         private Button btnCharacterGenerateName;
+        private Button btnCharacterRandomAppearance;
+        private Label lblCharacterBatchCount;
+        private NumericUpDown nudCharacterBatchCount;
+        private Button btnCharacterBatchNpc;
         private NameGenerationService characterNameService;
         private Label lblCharacterLibraryFilters;
         private TextBox txtCharacterLibrarySearch;
@@ -54,10 +58,11 @@ namespace OSRCGG
 
             PopulateCharacterCombo(cmbCharacterKind, new[] { "Player", "NPC" });
             PopulateCharacterCombo(cmbCharacterClass, CharacterGenerationCatalog.Classes.Select(c => c.Name).ToArray());
-            PopulateCharacterCombo(cmbCharacterOccupation, CharacterGenerationCatalog.NpcOccupationProficiencies.Keys.Concat(new[] { "Classed NPC" }).OrderBy(k => k).ToArray());
+            PopulateCharacterOccupationCombo();
             PopulateCharacterCombo(cmbCharacterAlignment, CharacterGenerationCatalog.Alignments);
             PopulateCharacterCombo(cmbCharacterSex, CharacterGenerationCatalog.Sexes);
             EnsureCharacterNameControls();
+            EnsureCharacterUtilityControls();
             EnsureCharacterLibraryFilterControls();
 
             string[] proficiencies = CharacterGenerationCatalog.GeneralProficiencies.Concat(CharacterGenerationCatalog.ClassProficiencies).Distinct().OrderBy(p => p).ToArray();
@@ -197,6 +202,74 @@ namespace OSRCGG
             }
         }
 
+        private string CharacterRandomOccupationOption
+        {
+            get { return isEnglish ? "<Random>" : "<Случайно>"; }
+        }
+
+        private void PopulateCharacterOccupationCombo()
+        {
+            if (cmbCharacterOccupation == null) return;
+
+            PopulateCharacterOccupationCombo(cmbCharacterOccupation.Text);
+        }
+
+        private void PopulateCharacterOccupationCombo(string selected)
+        {
+            if (cmbCharacterOccupation == null) return;
+
+            bool selectedRandom = IsCharacterRandomOccupationOption(selected);
+            string[] items = new[] { CharacterRandomOccupationOption }
+                .Concat(CharacterGenerationCatalog.NpcOccupationProficiencies.Keys.OrderBy(k => k))
+                .ToArray();
+
+            cmbCharacterOccupation.Items.Clear();
+            cmbCharacterOccupation.Items.AddRange(items);
+
+            if (selectedRandom || string.IsNullOrWhiteSpace(selected))
+            {
+                cmbCharacterOccupation.SelectedIndex = 0;
+                return;
+            }
+
+            SetCombo(cmbCharacterOccupation, selected);
+        }
+
+        private void RestoreCharacterOccupationSelection(string selected)
+        {
+            PopulateCharacterOccupationCombo(selected);
+        }
+
+        private bool IsCharacterRandomOccupationOption(string value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                || string.Equals(value, "<Random>", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "<Случайно>", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsCharacterRandomOccupationSelected()
+        {
+            return IsCharacterRandomOccupationOption(cmbCharacterOccupation == null ? "" : cmbCharacterOccupation.Text);
+        }
+
+        private string RequestedCharacterOccupation()
+        {
+            string occupation = cmbCharacterOccupation == null ? "" : cmbCharacterOccupation.Text;
+            return IsCharacterRandomOccupationOption(occupation) ? "" : occupation;
+        }
+
+        private bool ShouldGenerateZeroLevelOccupationNpc()
+        {
+            return nudCharacterLevel != null && nudCharacterLevel.Value <= 0;
+        }
+
+        private void SelectRandomCharacterOccupation()
+        {
+            if (cmbCharacterOccupation == null) return;
+            int index = cmbCharacterOccupation.FindStringExact(CharacterRandomOccupationOption);
+            if (index >= 0) cmbCharacterOccupation.SelectedIndex = index;
+        }
+
         private void EnsureCharacterNameControls()
         {
             if (chkCharacterGenerateName != null) return;
@@ -242,6 +315,89 @@ namespace OSRCGG
             PopulateCharacterNameCultures(selectedKey);
             chkCharacterGenerateName.Text = isEnglish ? "Auto" : "Ген. имя";
             btnCharacterGenerateName.Text = isEnglish ? "Roll" : "Имя";
+        }
+
+        private void EnsureCharacterUtilityControls()
+        {
+            if (btnCharacterRandomAppearance != null || tabPageCharacters == null) return;
+
+            btnCharacterRandomAppearance = new Button
+            {
+                Location = new Point(668, 8),
+                Size = new Size(118, 32)
+            };
+            UiTheme.StyleCommandButton(btnCharacterRandomAppearance, UiTheme.PositiveButtonColor);
+            btnCharacterRandomAppearance.Click += (s, e) => RegenerateCharacterAppearance();
+
+            lblCharacterBatchCount = new Label
+            {
+                BackColor = Color.Transparent,
+                ForeColor = Color.White,
+                TextAlign = ContentAlignment.MiddleRight,
+                Location = new Point(792, 8),
+                Size = new Size(44, 21)
+            };
+
+            nudCharacterBatchCount = new NumericUpDown
+            {
+                Location = new Point(840, 14),
+                Minimum = 1,
+                Maximum = 200,
+                Value = 12,
+                Size = new Size(52, 21)
+            };
+
+            btnCharacterBatchNpc = new Button
+            {
+                Location = new Point(900, 8),
+                Size = new Size(118, 32)
+            };
+            UiTheme.StyleCommandButton(btnCharacterBatchNpc, UiTheme.PositiveButtonColor);
+            btnCharacterBatchNpc.Click += (s, e) => GenerateNpcBatch();
+
+            tabPageCharacters.Controls.Add(btnCharacterRandomAppearance);
+            tabPageCharacters.Controls.Add(lblCharacterBatchCount);
+            tabPageCharacters.Controls.Add(nudCharacterBatchCount);
+            tabPageCharacters.Controls.Add(btnCharacterBatchNpc);
+            LayoutCharacterGenerationControls();
+            UpdateCharacterUtilityControlsLanguage();
+        }
+
+        private void LayoutCharacterGenerationControls()
+        {
+            if (btnCharacterRandomPlayer == null) return;
+
+            btnCharacterRandomPlayer.SetBounds(212, 8, 210, 32);
+            btnCharacterRandomNpc.SetBounds(432, 8, 210, 32);
+
+            int utilityTop = tabControlCharacterEditor == null
+                ? 520
+                : tabControlCharacterEditor.Bottom + 14;
+            int left = tabControlCharacterEditor == null ? 212 : tabControlCharacterEditor.Left;
+            int buttonWidth = 210;
+            int buttonGap = 16;
+            int rightColumn = left + buttonWidth + buttonGap;
+
+            btnCharacterRollAttributes.SetBounds(left, utilityTop, buttonWidth, 34);
+            btnCharacterRandomProficiencies.SetBounds(rightColumn, utilityTop, buttonWidth, 34);
+
+            int batchTop = utilityTop + 44;
+            if (btnCharacterRandomAppearance != null) btnCharacterRandomAppearance.SetBounds(left, batchTop, buttonWidth, 34);
+            if (btnCharacterBatchNpc != null) btnCharacterBatchNpc.SetBounds(rightColumn, batchTop, buttonWidth, 34);
+
+            int countTop = batchTop + 45;
+            if (lblCharacterBatchCount != null) lblCharacterBatchCount.SetBounds(rightColumn + 62, countTop + 3, 42, 21);
+            if (nudCharacterBatchCount != null) nudCharacterBatchCount.SetBounds(rightColumn + 110, countTop + 4, 58, 21);
+        }
+
+        private void UpdateCharacterUtilityControlsLanguage()
+        {
+            if (btnCharacterRandomAppearance == null) return;
+            btnCharacterRollAttributes.Text = isEnglish ? "Reroll attributes" : "Перегенерировать атрибуты";
+            btnCharacterRandomProficiencies.Text = isEnglish ? "Reroll proficiencies" : "Перегенерировать навыки";
+            btnCharacterRandomAppearance.Text = isEnglish ? "Reroll appearance" : "Перегенерировать внешность";
+            lblCharacterBatchCount.Text = isEnglish ? "Count" : "Кол-во";
+            btnCharacterBatchNpc.Text = isEnglish ? "NPC batch" : "Пачка NPC";
         }
 
         private void PopulateCharacterNameCultures(string selectedKey)
@@ -308,7 +464,9 @@ namespace OSRCGG
             tabCharacterProficiencies.Text = isEnglish ? "Proficiencies" : "Навыки";
             tabCharacterSheet.Text = isEnglish ? "Sheet" : "Лист";
 
+            PopulateCharacterOccupationCombo();
             UpdateCharacterNameControlsLanguage();
+            UpdateCharacterUtilityControlsLanguage();
 
             lblCharacterSummary.Text = isEnglish
                 ? "Character library\r\nSave, import, export"
@@ -333,8 +491,8 @@ namespace OSRCGG
             lblCharacterAppearance.Text = isEnglish ? "Looks" : "Внешность";
             lblCharacterBackground.Text = isEnglish ? "Story" : "История";
             lblCharacterHint.Text = isEnglish
-                ? "PC: ACKS character creation steps. NPC: level 0 creates occupation NPC; set Level above 0 before Random NPC to create a leveled NPC."
-                : "PC: шаги создания персонажа ACKS. NPC: уровень 0 создаёт НПС с профессией; поставь уровень выше 0 перед «Случ. NPC», чтобы создать уровневого НПС.";
+                ? "PC: ACKS character creation steps. NPC: Level 0 uses Job; Level 1+ ignores Job and creates a leveled NPC."
+                : "PC: шаги создания персонажа ACKS. NPC: уровень 0 использует ремесло; уровень 1+ игнорирует ремесло и создаёт уровневого НПС.";
 
             btnCharacterNew.Text = isEnglish ? "New" : "Новый";
             btnCharacterSave.Text = isEnglish ? "Save" : "Сохранить";
@@ -343,8 +501,11 @@ namespace OSRCGG
             btnCharacterExport.Text = isEnglish ? "Export" : "Экспорт";
             btnCharacterRandomPlayer.Text = isEnglish ? "Random PC" : "Случ. PC";
             btnCharacterRandomNpc.Text = isEnglish ? "Random NPC" : "Случ. NPC";
-            btnCharacterRollAttributes.Text = isEnglish ? "Attributes" : "Атрибуты";
-            btnCharacterRandomProficiencies.Text = isEnglish ? "Profic." : "Навыки";
+            if (btnCharacterRandomAppearance == null)
+            {
+                btnCharacterRollAttributes.Text = isEnglish ? "Reroll attributes" : "Перегенерировать атрибуты";
+                btnCharacterRandomProficiencies.Text = isEnglish ? "Reroll proficiencies" : "Перегенерировать навыки";
+            }
             FillCharacterFilterCombos();
         }
 

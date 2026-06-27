@@ -8,6 +8,9 @@ namespace OSRCGG
         public bool IsEnglish { get; set; }
         public string CurrentKind { get; set; }
         public string CurrentClassName { get; set; }
+        public string CurrentSex { get; set; }
+        public string RequestedOccupation { get; set; }
+        public bool ForceZeroLevelOccupation { get; set; }
         public int RequestedLevel { get; set; }
         public int MaximumLevel { get; set; }
         public Dictionary<string, int> Attributes { get; set; }

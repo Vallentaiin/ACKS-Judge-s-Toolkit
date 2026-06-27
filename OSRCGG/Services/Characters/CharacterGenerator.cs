@@ -72,17 +72,27 @@ namespace OSRCGG
 
         public CharacterGenerationResult GenerateNpc(CharacterGenerationRequest request)
         {
-            int requestedLevel = string.Equals(request.CurrentKind, "NPC", StringComparison.OrdinalIgnoreCase)
-                ? request.RequestedLevel
-                : 0;
+            request = request ?? new CharacterGenerationRequest();
+            bool forceOccupation = request.ForceZeroLevelOccupation;
+            int requestedLevel = forceOccupation ? 0 : request.RequestedLevel;
 
             return requestedLevel <= 0
                 ? GenerateZeroLevelNpc(request)
                 : GenerateLeveledNpc(request, requestedLevel);
         }
 
+        public string GenerateAppearance(CharacterGenerationRequest request)
+        {
+            request = request ?? new CharacterGenerationRequest();
+            BeginGeneration(request);
+            currentClassName = string.IsNullOrWhiteSpace(request.CurrentClassName) ? "Fighter" : request.CurrentClassName;
+            currentSex = request.CurrentSex ?? "";
+            return GenerateNpcAppearance();
+        }
+
         public string RandomizeProficiencies(CharacterGenerationRequest request)
         {
+            request = request ?? new CharacterGenerationRequest();
             BeginGeneration(request);
             string className = string.IsNullOrWhiteSpace(request.CurrentClassName)
                 ? CharacterGenerationCatalog.Classes[0].Name
@@ -111,7 +121,7 @@ namespace OSRCGG
 
             // NPC 0 уровня строится от профессии, а не от класса: это отдельная ACKS-ветка генерации.
             currentClassName = "Fighter";
-            NpcOccupationResult occupation = RollGeneralStreetOccupation();
+            NpcOccupationResult occupation = ResolveNpcOccupation(request.RequestedOccupation);
             RollNpcAttributes();
 
             CharacterGenerationResult result = CreateResultShell("NPC", currentClassName, occupation.Occupation);
@@ -210,6 +220,23 @@ namespace OSRCGG
             currentClassName = request.CurrentClassName ?? "";
             currentSex = "";
             characterAttributes = CloneAttributes(request.Attributes);
+        }
+
+        private bool IsSpecificNpcOccupation(string occupation)
+        {
+            return !string.IsNullOrWhiteSpace(occupation)
+                && !string.Equals(occupation, "Classed NPC", StringComparison.OrdinalIgnoreCase)
+                && CharacterGenerationCatalog.NpcOccupationProficiencies.ContainsKey(occupation);
+        }
+
+        private NpcOccupationResult ResolveNpcOccupation(string requestedOccupation)
+        {
+            if (IsSpecificNpcOccupation(requestedOccupation))
+            {
+                return new NpcOccupationResult(L("Selected", "Выбрано"), requestedOccupation);
+            }
+
+            return RollGeneralStreetOccupation();
         }
 
         private CharacterGenerationResult CreateResultShell(string kind, string className, string occupation)

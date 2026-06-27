@@ -24,6 +24,7 @@ namespace OSRCGG
             generator.GenerateFeatureNamesForMap(currentMap, GetSelectedMapCultureKey(), !isEnglish, random);
             GenerateMissingRealmNames(random);
             NormalizeMap(currentMap);
+            RebuildMapFeatureLabelIndex();
             pnlHexMap.Invalidate();
 
             MessageBox.Show(isEnglish
@@ -79,7 +80,6 @@ namespace OSRCGG
             if (currentMap == null) return;
 
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            UpdateMapScrollSize();
             RectangleF visibleWorld = GetVisibleWorldBounds(e.ClipRectangle);
 
             System.Drawing.Drawing2D.GraphicsState state = e.Graphics.Save();
